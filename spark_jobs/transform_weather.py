@@ -10,22 +10,18 @@ This job demonstrates:
 """
 
 import sys
+
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import (
-    col, explode, arrays_zip, lit, when, avg, max as spark_max,
-    min as spark_min, round as spark_round, current_timestamp
-)
-from pyspark.sql.types import (
-    StructType, StructField, StringType, FloatType,
-    ArrayType, DateType
-)
+from pyspark.sql.functions import arrays_zip, avg, col, current_timestamp, explode, when
+from pyspark.sql.functions import max as spark_max
+from pyspark.sql.functions import round as spark_round
+from pyspark.sql.types import ArrayType, FloatType, StringType, StructField, StructType
 
 
 def create_spark_session():
     """Create Spark session with PostgreSQL connectivity."""
     return (
-        SparkSession.builder
-        .appName("WeatherDataTransform")
+        SparkSession.builder.appName("WeatherDataTransform")
         .config("spark.jars.packages", "org.postgresql:postgresql:42.6.0")
         .getOrCreate()
     )
@@ -36,21 +32,29 @@ def read_raw_data(spark, execution_date, data_dir="/opt/data"):
     input_path = f"{data_dir}/raw/weather/{execution_date}/weather_raw.json"
 
     # Define schema for type safety
-    schema = StructType([
-        StructField("city", StringType(), True),
-        StructField("latitude", FloatType(), True),
-        StructField("longitude", FloatType(), True),
-        StructField("timezone", StringType(), True),
-        StructField("extracted_at", StringType(), True),
-        StructField("daily", StructType([
-            StructField("time", ArrayType(StringType()), True),
-            StructField("temperature_2m_max", ArrayType(FloatType()), True),
-            StructField("temperature_2m_min", ArrayType(FloatType()), True),
-            StructField("precipitation_sum", ArrayType(FloatType()), True),
-            StructField("windspeed_10m_max", ArrayType(FloatType()), True),
-            StructField("weathercode", ArrayType(FloatType()), True),
-        ]), True),
-    ])
+    schema = StructType(
+        [
+            StructField("city", StringType(), True),
+            StructField("latitude", FloatType(), True),
+            StructField("longitude", FloatType(), True),
+            StructField("timezone", StringType(), True),
+            StructField("extracted_at", StringType(), True),
+            StructField(
+                "daily",
+                StructType(
+                    [
+                        StructField("time", ArrayType(StringType()), True),
+                        StructField("temperature_2m_max", ArrayType(FloatType()), True),
+                        StructField("temperature_2m_min", ArrayType(FloatType()), True),
+                        StructField("precipitation_sum", ArrayType(FloatType()), True),
+                        StructField("windspeed_10m_max", ArrayType(FloatType()), True),
+                        StructField("weathercode", ArrayType(FloatType()), True),
+                    ]
+                ),
+                True,
+            ),
+        ]
+    )
 
     df = spark.read.schema(schema).json(input_path)
     print(f"Read {df.count()} city records from {input_path}")
@@ -76,8 +80,8 @@ def flatten_daily_data(df):
             col("daily.temperature_2m_min"),
             col("daily.precipitation_sum"),
             col("daily.windspeed_10m_max"),
-            col("daily.weathercode")
-        )
+            col("daily.weathercode"),
+        ),
     )
 
     # Explode to get one row per day per city
@@ -87,7 +91,7 @@ def flatten_daily_data(df):
         col("longitude"),
         col("timezone"),
         col("extracted_at"),
-        explode(col("daily_zipped")).alias("daily_record")
+        explode(col("daily_zipped")).alias("daily_record"),
     )
 
     # Extract individual fields
@@ -118,22 +122,21 @@ def add_derived_metrics(df):
     - Null handling
     - Data categorization
     """
-    df_enriched = df.withColumn(
-        "temp_range",
-        spark_round(col("temp_max") - col("temp_min"), 1)
-    ).withColumn(
-        "precipitation",
-        when(col("precipitation").isNull(), 0.0).otherwise(col("precipitation"))
-    ).withColumn(
-        "weather_category",
-        when(col("weather_code") < 3, "Clear")
-        .when(col("weather_code") < 50, "Cloudy")
-        .when(col("weather_code") < 70, "Rain")
-        .when(col("weather_code") < 80, "Snow")
-        .otherwise("Severe")
-    ).withColumn(
-        "processed_at",
-        current_timestamp()
+    df_enriched = (
+        df.withColumn("temp_range", spark_round(col("temp_max") - col("temp_min"), 1))
+        .withColumn(
+            "precipitation",
+            when(col("precipitation").isNull(), 0.0).otherwise(col("precipitation")),
+        )
+        .withColumn(
+            "weather_category",
+            when(col("weather_code") < 3, "Clear")
+            .when(col("weather_code") < 50, "Cloudy")
+            .when(col("weather_code") < 70, "Rain")
+            .when(col("weather_code") < 80, "Snow")
+            .otherwise("Severe"),
+        )
+        .withColumn("processed_at", current_timestamp())
     )
 
     return df_enriched
@@ -145,13 +148,17 @@ def compute_aggregates(df):
 
     Demonstrates Spark aggregation patterns.
     """
-    df_agg = df.groupBy("city_name").agg(
-        spark_round(avg("temp_max"), 1).alias("avg_temp_max"),
-        spark_round(avg("temp_min"), 1).alias("avg_temp_min"),
-        spark_round(avg("precipitation"), 2).alias("avg_precipitation"),
-        spark_max("wind_speed_max").alias("max_wind_speed"),
-        spark_round(avg("temp_range"), 1).alias("avg_temp_range"),
-    ).withColumn("computed_at", current_timestamp())
+    df_agg = (
+        df.groupBy("city_name")
+        .agg(
+            spark_round(avg("temp_max"), 1).alias("avg_temp_max"),
+            spark_round(avg("temp_min"), 1).alias("avg_temp_min"),
+            spark_round(avg("precipitation"), 2).alias("avg_precipitation"),
+            spark_max("wind_speed_max").alias("max_wind_speed"),
+            spark_round(avg("temp_range"), 1).alias("avg_temp_range"),
+        )
+        .withColumn("computed_at", current_timestamp())
+    )
 
     return df_agg
 
@@ -162,7 +169,7 @@ def write_to_postgres(df, table_name, jdbc_url, properties):
         url=jdbc_url,
         table=table_name,
         mode="overwrite",  # Staging tables get replaced
-        properties=properties
+        properties=properties,
     )
     print(f"Wrote {df.count()} rows to {table_name}")
 
@@ -180,7 +187,7 @@ def main(execution_date):
     jdbc_properties = {
         "user": "warehouse",
         "password": "warehouse",
-        "driver": "org.postgresql.Driver"
+        "driver": "org.postgresql.Driver",
     }
 
     try:

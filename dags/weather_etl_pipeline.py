@@ -9,15 +9,16 @@ This DAG demonstrates a complete ETL pipeline that:
 Schedule: Daily at 6 AM UTC
 """
 
+import json
+import os
 from datetime import datetime, timedelta
+
+import requests
 from airflow import DAG
+from airflow.operators.empty import EmptyOperator
 from airflow.operators.python import PythonOperator
 from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
 from airflow.providers.postgres.operators.postgres import PostgresOperator
-from airflow.operators.empty import EmptyOperator
-import requests
-import json
-import os
 
 # Configuration
 CITIES = [
@@ -100,7 +101,7 @@ def validate_extracted_data(**context):
     execution_date = context["ds"]
     raw_file = f"{DATA_DIR}/raw/weather/{execution_date}/weather_raw.json"
 
-    with open(raw_file, "r") as f:
+    with open(raw_file) as f:
         data = json.load(f)
 
     # Validation checks

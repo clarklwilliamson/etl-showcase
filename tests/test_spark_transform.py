@@ -5,26 +5,19 @@ These tests validate the transformation logic without requiring
 the full Airflow/Docker infrastructure.
 """
 
+import json
+import os
+import tempfile
+
 import pytest
 from pyspark.sql import SparkSession
-from pyspark.sql.types import (
-    StructType,
-    StructField,
-    StringType,
-    FloatType,
-    ArrayType,
-)
-import json
-import tempfile
-import os
 
 
 @pytest.fixture(scope="module")
 def spark():
     """Create a SparkSession for testing."""
     spark = (
-        SparkSession.builder
-        .master("local[2]")
+        SparkSession.builder.master("local[2]")
         .appName("test_weather_transform")
         .config("spark.sql.shuffle.partitions", "2")
         .getOrCreate()
@@ -120,7 +113,7 @@ class TestSparkTransformations:
 
     def test_flatten_daily_arrays(self, spark, raw_data_path):
         """Test flattening nested daily arrays."""
-        from pyspark.sql.functions import col, explode, arrays_zip
+        from pyspark.sql.functions import arrays_zip, col, explode
 
         df = spark.read.json(raw_data_path)
 
@@ -145,7 +138,8 @@ class TestSparkTransformations:
 
     def test_derived_metrics_calculation(self, spark):
         """Test temperature range calculation."""
-        from pyspark.sql.functions import col, round as spark_round
+        from pyspark.sql.functions import col
+        from pyspark.sql.functions import round as spark_round
 
         data = [
             ("NYC", 45.2, 32.1),
@@ -201,7 +195,8 @@ class TestAggregations:
 
     def test_city_aggregates(self, spark):
         """Test city-level aggregations."""
-        from pyspark.sql.functions import avg, max as spark_max, round as spark_round
+        from pyspark.sql.functions import avg
+        from pyspark.sql.functions import round as spark_round
 
         data = [
             ("NYC", 45.0, 32.0, 0.1),
@@ -209,9 +204,7 @@ class TestAggregations:
             ("LA", 72.0, 55.0, 0.0),
             ("LA", 75.0, 58.0, 0.0),
         ]
-        df = spark.createDataFrame(
-            data, ["city", "temp_max", "temp_min", "precipitation"]
-        )
+        df = spark.createDataFrame(data, ["city", "temp_max", "temp_min", "precipitation"])
 
         df_agg = df.groupBy("city").agg(
             spark_round(avg("temp_max"), 1).alias("avg_temp_max"),

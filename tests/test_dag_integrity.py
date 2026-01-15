@@ -5,8 +5,9 @@ These tests verify that DAGs are properly configured
 and follow Airflow best practices.
 """
 
-import pytest
 from pathlib import Path
+
+import pytest
 
 
 class TestDAGIntegrity:
@@ -55,17 +56,13 @@ class TestDAGIntegrity:
                         continue
                     # This might be a hardcoded date - warn
                     # Note: Not failing, just informational
-                    print(
-                        f"Potential hardcoded date in {dag_file.name}:{i}: {line.strip()}"
-                    )
+                    print(f"Potential hardcoded date in {dag_file.name}:{i}: {line.strip()}")
 
     def test_dag_has_default_args(self, dag_files):
         """Verify DAGs define default_args."""
         for dag_file in dag_files:
             content = dag_file.read_text()
-            assert (
-                "default_args" in content
-            ), f"{dag_file.name} missing default_args definition"
+            assert "default_args" in content, f"{dag_file.name} missing default_args definition"
 
     def test_dag_has_tags(self, dag_files):
         """Verify DAGs have tags for organization."""
@@ -104,6 +101,4 @@ class TestDAGTaskConfiguration:
     def test_extract_task_has_error_handling(self):
         """Verify extract function has error handling."""
         dag_content = Path("dags/weather_etl_pipeline.py").read_text()
-        assert (
-            "RequestException" in dag_content
-        ), "Extract task should handle request exceptions"
+        assert "RequestException" in dag_content, "Extract task should handle request exceptions"
