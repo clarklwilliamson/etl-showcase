@@ -1,0 +1,19 @@
+{
+  "connections": [
+    {
+      "conn_id": "postgres_warehouse",
+      "conn_type": "postgres",
+      "host": "postgres-warehouse",
+      "port": 5432,
+      "schema": "warehouse",
+      "login": "warehouse",
+      "password": "warehouse"
+    },
+    {
+      "conn_id": "spark_default",
+      "conn_type": "spark",
+      "host": "spark://spark-master",
+      "port": 7077
+    }
+  ]
+}

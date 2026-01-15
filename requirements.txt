@@ -1,0 +1,18 @@
+# Airflow providers
+apache-airflow-providers-postgres==5.10.0
+apache-airflow-providers-apache-spark==4.7.1
+
+# Data processing
+pandas==2.1.4
+requests==2.31.0
+pyspark==3.5.0
+
+# Database connectivity
+psycopg2-binary==2.9.9
+sqlalchemy==1.4.51
+
+# Data validation
+great-expectations==0.18.8
+
+# Utilities
+python-dotenv==1.0.0
