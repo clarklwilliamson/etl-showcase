@@ -44,42 +44,35 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install apache-airflow==2.8.1 \
+          pip install "apache-airflow==2.8.1" \
+            "flask-session>=0.5.0,<1.0" \
             apache-airflow-providers-postgres \
             apache-airflow-providers-apache-spark \
             pyspark pandas requests
 
-      - name: Validate DAG imports
-        run: |
-          python -c "
-          import sys
-          from pathlib import Path
-
-          # Add dags to path
-          sys.path.insert(0, 'dags')
-
-          errors = []
-          for dag_file in Path('dags').glob('*.py'):
-              try:
-                  exec(open(dag_file).read())
-                  print(f'✓ {dag_file.name} - valid')
-              except Exception as e:
-                  errors.append(f'✗ {dag_file.name} - {e}')
-                  print(f'✗ {dag_file.name} - {e}')
-
-          if errors:
-              sys.exit(1)
-          "
-
-      - name: Check DAG integrity
+      - name: Validate DAG syntax and imports
         env:
           AIRFLOW_HOME: ${{ github.workspace }}
           AIRFLOW__CORE__LOAD_EXAMPLES: "false"
           AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////tmp/airflow.db
         run: |
+          # Initialize DB
           airflow db migrate
+
+          # List DAGs (validates parsing)
           airflow dags list
-          airflow dags list-import-errors
+
+          # Check for import errors
+          airflow dags list-import-errors --output json | python -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          if data:
+              print('DAG import errors found:')
+              for err in data:
+                  print(f\"  {err['file']}: {err['error']}\")
+              sys.exit(1)
+          print('✓ No DAG import errors')
+          "
 
   test-spark:
     name: Test Spark Jobs
