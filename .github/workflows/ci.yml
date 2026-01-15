@@ -75,9 +75,9 @@ jobs:
         env:
           AIRFLOW_HOME: ${{ github.workspace }}
           AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-          AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:///airflow.db
+          AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////tmp/airflow.db
         run: |
-          airflow db init
+          airflow db migrate
           airflow dags list
           airflow dags list-import-errors
 
